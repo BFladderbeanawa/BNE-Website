@@ -1,39 +1,85 @@
-import { defineStore } from 'pinia'
-import { useRouter } from 'vue-router'
+import { defineStore } from 'pinia';
+import router from '@/router';
+import apiClient from '@/api'; // Import our configured Axios instance
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    isLoggedIn: false,
+    // Initialize state from localStorage to keep user logged in on page refresh
+    token: localStorage.getItem('token') || null,
     username: '',
-    // 新增 role 属性来区分用户和管理员
-    role: 'user' as 'user' | 'admin'
+    role: 'user' as 'user' | 'admin',
   }),
-  // 新增 getters，方便在组件中直接判断是否为管理员
-  getters: {
-    isAdmin: (state) => state.role === 'admin'
-  },
-  actions: {
-    async login(username, password) {
-      // --- 在这里调用您的 HFI 认证 API ---
-      // 登录成功后，API 应该返回用户信息，包括用户的角色
 
-      // 为了演示，我们做一个简单的模拟：
-      // 如果用户名是 'admin'，我们就认为他是管理员
-      this.isLoggedIn = true
-      this.username = username
-      if (username === 'admin') {
-        this.role = 'admin'
-      } else {
-        this.role = 'user'
+  getters: {
+    // A getter to easily check if the user is logged in
+    isLoggedIn: (state) => !!state.token,
+    isAdmin: (state) => state.role === 'admin',
+  },
+
+  actions: {
+    // The main login action
+    async login(username: string, password: string) {
+      try {
+        // Call the /user/login endpoint
+        const response = await apiClient.post('/user/login', { username, password });
+
+        // IMPORTANT: The OpenAPI spec for login returns a User object.
+        // A real-world login almost ALWAYS returns a token. I am assuming
+        // your backend response looks like: { token: '...', user: { ... } }
+        // Please adjust 'response.data.token' if your backend is different.
+        const token = response.data.token;
+        const user = response.data.user; // Assuming user info is nested
+
+        if (!token || !user) {
+          console.error("Login response is missing token or user data!");
+          return false;
+        }
+
+        // Store the token in state and localStorage
+        this.token = token;
+        localStorage.setItem('token', token);
+
+        // Update user information in the store
+        this.username = user.username;
+        this.role = user.isAdmin ? 'admin' : 'user';
+
+        return true; // Indicate success
+      } catch (error) {
+        console.error('Login failed:', error);
+        // Clean up any partial state
+        this.logout();
+        return false; // Indicate failure
       }
     },
+
+    // Fetches user info if a token exists (useful for page reloads)
+    async fetchUserInfo() {
+      if (this.isLoggedIn) {
+        try {
+          const response = await apiClient.get('/user/info');
+          const user = response.data;
+          this.username = user.username;
+          this.role = user.isAdmin ? 'admin' : 'user';
+        } catch (error) {
+          console.error('Failed to fetch user info:', error);
+          // The token might be invalid, so log out
+          this.logout();
+        }
+      }
+    },
+
+    // The logout action
     logout() {
-      const router = useRouter()
-      this.isLoggedIn = false
-      this.username = ''
-      this.role = 'user'
-      // 退出登录后跳转到主页
-      router.push('/')
-    }
-  }
-})
+      // Clear all state
+      this.token = null;
+      this.username = '';
+      this.role = 'user';
+
+      // Remove the token from localStorage
+      localStorage.removeItem('token');
+
+      // Redirect to the login page
+      router.push('/login');
+    },
+  },
+});

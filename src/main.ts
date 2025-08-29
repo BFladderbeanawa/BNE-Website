@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia' // 引入 createPinia
+import { useUserStore } from '@/stores/user'
 
 import App from './App.vue'
 import router from './router'
@@ -15,7 +16,8 @@ const app = createApp(App)
 // 必须在 router 之前！
 const pinia = createPinia()
 app.use(pinia)
-
+const userStore = useUserStore()
+userStore.fetchUserInfo()
 // [修正 2] 在 Pinia 之后注册 Router
 app.use(router)
 

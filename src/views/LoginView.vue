@@ -15,12 +15,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus' // Import ElMessage for feedback
 
 const router = useRouter()
 const userStore = useUserStore()
+const loading = ref(false) // Add a loading state
 
 const loginForm = reactive({
   username: '',
@@ -28,10 +30,21 @@ const loginForm = reactive({
 })
 
 const handleLogin = async () => {
-  // 这里应该调用后端API进行登录验证
-  // 模拟登录成功
-  await userStore.login(loginForm.username, loginForm.password)
-  router.push('/')
+  if (!loginForm.username || !loginForm.password) {
+    ElMessage.warning('Please enter username and password.')
+    return
+  }
+
+  loading.value = true
+  const success = await userStore.login(loginForm.username, loginForm.password)
+  loading.value = false
+
+  if (success) {
+    ElMessage.success('Login successful!')
+    router.push('/') // Redirect to homepage on success
+  } else {
+    ElMessage.error('Login failed. Please check your credentials.')
+  }
 }
 </script>
 

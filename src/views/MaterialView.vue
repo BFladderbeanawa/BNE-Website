@@ -14,15 +14,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import apiClient from '@/api'
+import { ElMessage } from 'element-plus'
 
-// 模拟数据
-const materials = ref([
-  { name: '资料一.pdf', uploader: '张三', status: '已审核' },
-  { name: '资料二.docx', uploader: '李四', status: '待审核' },
-])
+const materials = ref([])
+const loading = ref(true)
 
-const handleSuccess = (response, file) => {
-  // 文件上传成功后的处理逻辑
+const fetchMaterials = async () => {
+  loading.value = true
+  try {
+    const response = await apiClient.get('/material')
+    materials.value = response.data
+  } catch (error) {
+    console.error('Failed to fetch materials:', error)
+    ElMessage.error('无法加载物资列表')
+  } finally {
+    loading.value = false
+  }
 }
+
+onMounted(() => {
+  fetchMaterials()
+})
 </script>
